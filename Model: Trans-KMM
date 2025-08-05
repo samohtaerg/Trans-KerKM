@@ -1,0 +1,158 @@
+def kernel_weighted_transfer_km(X_source, Y_source, delta_source,
+                               X_target, Y_target, delta_target,
+                               sigma_grid=None, lambda_grid=None,
+                               n_folds=5, test_size=0.2, apply_loo=True, random_state=None):
+    """
+    Kernel-Weighted Transfer Kaplan-Meier Estimation with Cross-Validated Source Weighting
+
+    Args:
+        X_source: feature matrix of source data
+        Y_source: survival times of source data
+        delta_source: event indicators of source data
+        X_target: feature matrix of target data
+        Y_target: survival times of target data
+        delta_target: event indicators of target data
+        sigma_grid: list of bandwidth parameters to search (default: auto-generated)
+        lambda_grid: list of source weight parameters to search (default: auto-generated)
+        n_folds: number of cross-validation folds
+        test_size: proportion of target data to use as test set
+        apply_loo: whether to apply leave-one-out when computing hazard (default: True)
+        random_state: random seed for reproducibility
+
+    Returns:
+        tuple: (best_params, final_model, test_c_index) - optimal parameters, final model and test performance
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Apply standardization to features
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler()
+    X_all = np.vstack([X_source, X_target])
+    scaler.fit(X_all)
+    if X_source.shape[0] > 0:
+        X_source = scaler.transform(X_source)
+    else:
+        X_source = np.empty((0, X_target.shape[1]))  # optional fallback
+    X_target = scaler.transform(X_target)
+
+    # Split target data into training and test sets
+    n_target = X_target.shape[0]
+    n_test = int(n_target * test_size)
+
+    # Randomly select indices for test set
+    all_indices = np.arange(n_target)
+    np.random.shuffle(all_indices)
+    test_indices = all_indices[:n_test]
+    train_indices = all_indices[n_test:]
+
+    X_test = X_target[test_indices]
+    Y_test = Y_target[test_indices]
+    delta_test = delta_target[test_indices]
+
+    X_train = X_target[train_indices]
+    Y_train = Y_target[train_indices]
+    delta_train = delta_target[train_indices]
+
+    # Generate default parameter grids if not provided
+    if sigma_grid is None:
+        # Generate sigma grid based on median distance in data
+        median_dist = np.median(cdist(X_train, X_train, metric='euclidean')[np.triu_indices(X_train.shape[0], k=1)])
+        sigma_grid = [median_dist * factor for factor in [0.1, 0.5, 1.0, 2.0, 5.0]]
+
+    if lambda_grid is None:
+        # Generate lambda grid with different source weighting factors
+        lambda_grid = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+
+    print("Starting parameter search with grid:")
+    print(f"Sigma grid: {sigma_grid}")
+    print(f"Lambda grid: {lambda_grid}")
+    print(f"Cross-validation: {n_folds} folds")
+    print(f"Apply LOO: {apply_loo}")
+
+    # Find optimal parameters through grid search
+    best_sigma, best_lambda, best_cv_score = grid_search_cv(
+        X_train, Y_train, delta_train,
+        X_source, Y_source, delta_source,
+        sigma_grid, lambda_grid, n_folds=n_folds, apply_loo=apply_loo, random_state=random_state
+    )
+
+    # ===== PATCH START: fallback if no valid parameters found =====
+    if best_sigma is None or best_lambda is None or np.isnan(best_cv_score):
+        print("All parameter combinations failed. Returning null result.")
+        return {'sigma': None, 'lambda': None}, None, None
+    # ===== PATCH END =====
+
+    # Train final model using best parameters on full training data
+    print("\nTraining final model with best parameters...")
+
+    # Generate survival curves for test samples
+    test_survival_curves = {}
+
+    for i, x_i in enumerate(X_test):
+        # Compute hazard function with LOO option
+        hazard_times, hazard_values = compute_individualized_hazard(
+            x_i, X_train, Y_train, delta_train,
+            X_source, Y_source, delta_source,
+            best_sigma, best_lambda, apply_loo=apply_loo
+        )
+
+        # Convert to survival function
+        times, survival_probs = compute_survival_function(hazard_times, hazard_values)
+
+        # Store survival curve
+        test_survival_curves[i] = (times, survival_probs)
+
+    # Evaluate final model on test set
+    test_c_index = compute_c_index_from_survival_curves(
+        test_survival_curves, Y_test, delta_test
+    )
+
+    print(f"Test set C-index: {test_c_index:.4f}")
+
+    # Create final model object (parameters and predict function)
+    best_params = {'sigma': best_sigma, 'lambda': best_lambda}
+
+    # Define prediction function for new data
+    def predict_survival(X_new, apply_loo_pred=apply_loo):
+        """
+        Predict survival curves for new samples
+
+        Args:
+            X_new: feature matrix for new samples
+            apply_loo_pred: whether to apply leave-one-out (default: same as training)
+
+        Returns:
+            dict: keys are sample indices, values are (times, probs) tuples
+        """
+        # Apply the same standardization to new data
+        X_new_scaled = predict_survival.scaler.transform(X_new)
+
+        survival_curves = {}
+
+        for i, x_i in enumerate(X_new_scaled):
+            # Compute hazard function with LOO option
+            hazard_times, hazard_values = compute_individualized_hazard(
+                x_i, X_train, Y_train, delta_train,
+                X_source, Y_source, delta_source,
+                best_sigma, best_lambda, apply_loo=apply_loo_pred
+            )
+
+            # Convert to survival function
+            times, survival_probs = compute_survival_function(hazard_times, hazard_values)
+
+            # Store survival curve
+            survival_curves[i] = (times, survival_probs)
+
+        return survival_curves
+
+    # Create final model as callable function with attached parameters
+    final_model = predict_survival
+    final_model.params = best_params
+    # Store LOO setting in the model
+    final_model.apply_loo = apply_loo
+    # Store the scaler in the model for future predictions
+    final_model.scaler = scaler
+
+    return best_params, final_model, test_c_index
