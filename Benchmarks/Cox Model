@@ -1,0 +1,44 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from lifelines import CoxPHFitter
+from lifelines.utils import concordance_index
+
+def fit_cox_model(X_train, Y_train, delta_train, X_test, Y_test, delta_test, col_names=None):
+   """
+   Fit a Cox Proportional Hazards model and evaluate its performance
+
+   Args:
+       X_train: training feature matrix
+       Y_train: training survival times
+       delta_train: training event indicators
+       X_test: test feature matrix
+       Y_test: test survival times
+       delta_test: test event indicators
+       col_names: feature column names
+
+   Returns:
+       tuple: (model, c_index) - fitted model and test set C-index
+   """
+   # Create a DataFrame for the training data
+   if col_names is None:
+       col_names = [f"X{i+1}" for i in range(X_train.shape[1])]
+
+   train_df = pd.DataFrame(X_train, columns=col_names)
+   train_df['time'] = Y_train
+   train_df['event'] = delta_train
+
+   # Fit the Cox model
+   cph = CoxPHFitter()
+   cph.fit(train_df, duration_col='time', event_col='event')
+
+   # Create a DataFrame for the test data
+   test_df = pd.DataFrame(X_test, columns=col_names)
+
+   # Predict risk scores
+   risk_scores = cph.predict_partial_hazard(test_df)
+
+   # Compute C-index (negative risk scores because higher risk = shorter survival time)
+   c_index = concordance_index(Y_test, -risk_scores, delta_test)
+
+   return cph, c_index
