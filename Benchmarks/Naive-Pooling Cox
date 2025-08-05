@@ -1,0 +1,55 @@
+def fit_transfer_cox_model(X_source, Y_source, delta_source,
+                          X_target, Y_target, delta_target,
+                          test_size=0.3, random_state=None, col_names=None):
+   """
+   Fit Cox model with transfer learning (simply combining source and target data)
+
+   Args:
+       X_source: source feature matrix
+       Y_source: source survival times
+       delta_source: source event indicators
+       X_target: target feature matrix
+       Y_target: target survival times
+       delta_target: target event indicators
+       test_size: proportion of target data to use as test set
+       random_state: random seed
+       col_names: feature column names
+
+   Returns:
+       tuple: (model, c_index) - fitted model and test set C-index
+   """
+   # Split target data into train and test sets
+   X_train_target, X_test, Y_train_target, Y_test, delta_train_target, delta_test = train_test_split(
+       X_target, Y_target, delta_target, test_size=test_size, random_state=random_state
+   )
+
+   # Create feature column names if not provided
+   if col_names is None:
+       col_names = [f"X{i+1}" for i in range(X_source.shape[1])]
+
+   # Create DataFrames
+   source_df = pd.DataFrame(X_source, columns=col_names)
+   source_df['time'] = Y_source
+   source_df['event'] = delta_source
+
+   target_train_df = pd.DataFrame(X_train_target, columns=col_names)
+   target_train_df['time'] = Y_train_target
+   target_train_df['event'] = delta_train_target
+
+   # Combine source and target training data
+   combined_df = pd.concat([source_df, target_train_df])
+
+   # Fit the Cox model on combined data
+   cph = CoxPHFitter()
+   cph.fit(combined_df, duration_col='time', event_col='event')
+
+   # Create test DataFrame
+   test_df = pd.DataFrame(X_test, columns=col_names)
+
+   # Predict risk scores
+   risk_scores = cph.predict_partial_hazard(test_df)
+
+   # Compute C-index
+   c_index = concordance_index(Y_test, -risk_scores, delta_test)
+
+   return cph, c_index, X_test, Y_test, delta_test
