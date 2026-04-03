@@ -1,6 +1,6 @@
 # Trans-KerKM: Kernel-Weighted Survival Estimation via Cross-Domain Transfer
 
-Implementation details for the experiments in the paper **"Kernel-Weighted Survival Estimation via Cross-Domain Transfer"** by Aoran Chen and Yang Feng.
+Implementation details for the experiments in the paper **"Kernel-Weighted Survival Estimation via Cross-Domain Transfer"**.
 
 > **Abstract.** [To be added.]
 
