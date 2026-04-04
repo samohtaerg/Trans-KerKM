@@ -1,4 +1,4 @@
-# Trans-KerKM: Kernel-Weighted Survival Estimation via Cross-Domain Transfer
+# Trans-KerKM
 
 Implementation for the paper **"Kernel-Weighted Survival Estimation via Cross-Domain Transfer"**. [[Paper]([URL])]
 
