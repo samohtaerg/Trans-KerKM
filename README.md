@@ -31,7 +31,7 @@ pip install numpy scipy scikit-learn lifelines
 python demo/trans_kerkm_demo.py
 ```
 
-Expected runtime: under 60 seconds. Expected output:
+Expected runtime on CPU: under 60 seconds. Expected output:
 
 ```
 ============================================================
