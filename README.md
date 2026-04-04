@@ -1,4 +1,4 @@
-# Trans-KerKM
+# Trans-KerKM: Kernel-Weighted Survival Estimation via Cross-Domain Transfer
 
 Implementation for the paper **"Kernel-Weighted Survival Estimation via Cross-Domain Transfer"**. [[Paper]([URL])]
 
@@ -48,6 +48,16 @@ Target-Cox                    0.6108
 
 ---
 
-## TCGA Experiments
+## Reproducing the TCGA Experiments
 
-[To be added.]
+### Data
+
+Download the clinical JSON files for the five cancer types (BRCA, OV, LUAD, GBM, UCEC) from the [GDC Data Portal](https://portal.gdc.cancer.gov/analysis_page?app=Projects) and place them under `Real Data Result/TCGA Dataset/Raw Data/`. The filenames include the download date (e.g., `clinical.project-tcga-brca.2025-07-25.json`); update the `FILE_MAPPING` dictionary in the `USER CONFIGURATION` block of `tcga_data_cleaning.py` to match your downloaded filenames before running.
+
+### Preprocessing
+
+Run `Real Data Result/TCGA Dataset/tcga_data_cleaning.py` on your local machine or HPC, which produces `combined_survival_final.json`. Edit the `USER CONFIGURATION` block at the top of the script (paths `RAW_DATA_PATH` and `SAVE_PATH`) before running.
+
+### Experiment
+
+Edit the `USER CONFIGURATION` block at the top of `Real Data Result/Real Data Result.py`: set `OUTPUT_DIR` and `TCGA_FILE` to your local or HPC paths before running.
