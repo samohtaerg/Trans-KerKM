@@ -25,8 +25,8 @@ import sys
 # ============================================================
 # USER CONFIGURATION — edit these paths before running
 # ============================================================
-OUTPUT_DIR    = "/scratch/<your_netid>/tcgaI/"              # directory where result JSONs will be saved
-TCGA_FILE     = "/scratch/<your_netid>/combined_survival_final.json"  # path to preprocessed TCGA data
+OUTPUT_DIR    = ""  # directory where result JSONs will be saved
+TCGA_FILE     = "/combined_survival_final.json"  # path to preprocessed TCGA data
 # ============================================================
 
 
