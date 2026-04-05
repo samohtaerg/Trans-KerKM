@@ -18,7 +18,7 @@ pandas==2.2.2
 
 ## Demo
 
-We provide a self-contained demo that runs **exactly one replicate** (single random seed, no Monte Carlo averaging) of Setting 2b (signal level sweep, imbalanced target mixture; Section 4 of the paper) on simulated data with a reduced parameter grid and fixed seed. The demo illustrates the method's inputs, core functions, and output format. Full details on the simplifications relative to the HPC experiments are documented in the script header.
+We provide a self-contained demo that runs **one replicate** (single random seed, no Monte Carlo averaging) of Setting 2b (signal level sweep, imbalanced target mixture; Section 4 of the paper) on simulated data with a reduced parameter grid and fixed seed. The demo illustrates the method's inputs, core functions, and output format. Full details on the simplifications relative to the HPC experiments are documented in the script header.
 
 **Google Colab** (no setup required):
 
