@@ -62,4 +62,4 @@ Run `Real Data Result/TCGA Dataset/tcga_data_cleaning.py` on your local machine 
 
 ### Experiment
 
-Edit the USER CONFIGURATION block at the top of Real Data Result/run_tcga.py: set OUTPUT_DIR and TCGA_FILE to your local or HPC paths before running. Submit run_tcga.sh as a SLURM array job to reproduce all 100 seeds.
+Edit the `USER CONFIGURATION` block at the top of `Real Data Result/run_tcga.py`: set `OUTPUT_DIR` and `TCGA_FILE` to your local or HPC paths before running. Submit `run_tcga.sh` as a SLURM array job to reproduce all 100 seeds.
