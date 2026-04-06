@@ -62,4 +62,4 @@ Run `Real Data Result/TCGA Dataset/tcga_data_cleaning.py` on your local machine 
 
 ### Experiment
 
-Edit the `USER CONFIGURATION` block at the top of `Real Data Result/Real Data Result.py`: set `OUTPUT_DIR` and `TCGA_FILE` to your local or HPC paths before running.
+Edit the `USER CONFIGURATION` block at the top of `Real Data Result/run_tcga.py.py`: set `OUTPUT_DIR` and `TCGA_FILE` to your local or HPC paths before running.
