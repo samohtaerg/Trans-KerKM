@@ -50,9 +50,11 @@ def create_imbalanced_tcga_splits(df_tcga,
                                   random_state=20):
     np.random.seed(random_state)
 
-    source_data = df_tcga.sample(n=source_size, random_state=random_state)
-
     target_cancers = ['brca', 'luad']
+
+    source_pool = df_tcga[~df_tcga['cancer_type'].isin(target_cancers)]
+    source_data = source_pool.sample(n=source_size, random_state=random_state)
+
     target_test_pool = df_tcga[df_tcga['cancer_type'].isin(target_cancers)]
     needed = target_size + test_size
     if len(target_test_pool) < needed:
