@@ -19,6 +19,13 @@ from sklearn.preprocessing import StandardScaler
 from lifelines import CoxPHFitter
 from lifelines.utils import concordance_index
 
+# ============================================================
+# USER CONFIGURATION — edit these before running
+# ============================================================
+OUTPUT_DIR = "/scratch/th3220/tlktarget/"  # directory where result JSONs will be saved
+DATA_TYPE  = "balanced"                     # "balanced" or "unbalanced"
+# ============================================================
+
 """Let's try to fit a Trans-Kernel-KM model and compare it to Cox model
 
 # Trans-Kernel-KM helper functions
@@ -867,13 +874,11 @@ if __name__ == "__main__":
     task_id = os.environ.get("SLURM_ARRAY_TASK_ID", "0")  # Default to "0" if not defined
     random_state = int(task_id)  # Use task_id as random seed
 
-    # Define output directory and file path
-    output_dir_name = "tlktarget" #@param {type:"string"}
-    output_dir = f'/scratch/th3220/{output_dir_name}/'
+    # Output directory from CONFIG
+    output_dir = OUTPUT_DIR
     print(f"Output directory set to: {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
 
-    # Define result prefix parameter that can be edited in Colab
     output_file = os.path.join(output_dir, f'tlkkm_target_size_result_{task_id}.json')
 
     # Check if output file already exists, skip computation if it does
@@ -889,8 +894,8 @@ if __name__ == "__main__":
     n_folds = 3 #@param {type:"slider", min:1, max:10, step:1}
     apply_loo = True
 
-    # Data generation control
-    data_type = "balanced" #@param ["balanced", "unbalanced"]
+    # Data generation control (from CONFIG)
+    data_type = DATA_TYPE
 
     # Signal Strength handle
     signal_strength = "weak" #@param ["strong", "weak", "very_weak", "extremely_weak"]
