@@ -26,6 +26,13 @@ import json
 import sys
 from sklearn.preprocessing import StandardScaler
 
+# ============================================================
+# USER CONFIGURATION — edit these before running
+# ============================================================
+OUTPUT_DIR = "/scratch/th3220/tlkfeature/"  # directory where result JSONs will be saved
+DATA_TYPE  = "unbalanced"                    # "balanced" or "unbalanced"
+# ============================================================
+
 """Let's try to fit a Trans-Kernel-KM model and compare it to Cox model
 
 # Trans-Kernel-KM helper functions
@@ -890,9 +897,8 @@ if __name__ == "__main__":
     task_id = os.environ.get("SLURM_ARRAY_TASK_ID", "0")  # Default to "0" if not defined
     random_state = int(task_id)  # Use task_id as random seed
 
-    # Define output directory and file path
-    output_dir_name = "tlkfeature" #@param {type:"string"}
-    output_dir = f'/scratch/th3220/{output_dir_name}/'
+    # Output directory from CONFIG
+    output_dir = OUTPUT_DIR
     print(f"Output directory set to: {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -913,8 +919,8 @@ if __name__ == "__main__":
     n_folds = 5 #@param {type:"slider", min:1, max:10, step:1}
     apply_loo = True
 
-    # Data generation control
-    data_type = "unbalanced" #@param ["balanced", "unbalanced"]
+    # Data generation control (from CONFIG)
+    data_type = DATA_TYPE
 
     # Signal Strength handle
     signal_strength = "weak" #@param ["strong", "weak"]
