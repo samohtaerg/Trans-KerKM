@@ -129,21 +129,29 @@ def kernel_weighted_transfer_km(X_source, Y_source, delta_source,
                                 apply_loo=True, random_state=None):
     np.random.seed(random_state)
 
-    scaler = StandardScaler()
-    X_all = np.vstack([X_source, X_target]) if X_source.shape[0] > 0 else X_target
-    scaler.fit(X_all)
-    X_source_s = scaler.transform(X_source) if X_source.shape[0] > 0 else X_source
-    X_target_s = scaler.transform(X_target)
-
-    n_target = X_target_s.shape[0]
+    # Step 1: split BEFORE fitting the scaler (no leakage)
+    n_target = X_target.shape[0]
     n_test = int(n_target * test_size)
     all_indices = np.arange(n_target)
     np.random.shuffle(all_indices)
     test_indices  = all_indices[:n_test]
     train_indices = all_indices[n_test:]
 
-    X_test,  Y_test,  d_test  = X_target_s[test_indices],  Y_target[test_indices],  delta_target[test_indices]
-    X_train, Y_train, d_train = X_target_s[train_indices], Y_target[train_indices], delta_target[train_indices]
+    X_train_raw, Y_train, d_train = (X_target[train_indices],
+                                     Y_target[train_indices],
+                                     delta_target[train_indices])
+    X_test_raw,  Y_test,  d_test  = (X_target[test_indices],
+                                     Y_target[test_indices],
+                                     delta_target[test_indices])
+
+    # Step 2: fit scaler on source + train only
+    scaler = StandardScaler()
+    X_all = np.vstack([X_source, X_train_raw]) if X_source.shape[0] > 0 else X_train_raw
+    scaler.fit(X_all)
+
+    X_source_s = scaler.transform(X_source) if X_source.shape[0] > 0 else X_source
+    X_train_s  = scaler.transform(X_train_raw)
+    X_test_s   = scaler.transform(X_test_raw)
 
     if sigma_grid is None:
         sigma_grid = np.logspace(np.log10(0.1), np.log10(1.0), 5).tolist()
@@ -151,7 +159,7 @@ def kernel_weighted_transfer_km(X_source, Y_source, delta_source,
         lambda_grid = np.logspace(np.log10(1.0), np.log10(10.0), 5).tolist()
 
     best_sigma, best_lambda, best_cv = grid_search_cv(
-        X_train, Y_train, d_train,
+        X_train_s, Y_train, d_train,
         X_source_s, Y_source, delta_source,
         sigma_grid, lambda_grid,
         n_folds=n_folds, apply_loo=apply_loo, random_state=random_state)
@@ -161,9 +169,9 @@ def kernel_weighted_transfer_km(X_source, Y_source, delta_source,
         return {'sigma': None, 'lambda': None}, None, None
 
     test_curves = {}
-    for i, x_i in enumerate(X_test):
+    for i, x_i in enumerate(X_test_s):
         ht, hv = compute_individualized_hazard(
-            x_i, X_train, Y_train, d_train,
+            x_i, X_train_s, Y_train, d_train,
             X_source_s, Y_source, delta_source,
             best_sigma, best_lambda, apply_loo=apply_loo)
         times, probs = compute_survival_function(ht, hv)
