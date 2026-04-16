@@ -28,7 +28,7 @@ from sklearn.preprocessing import StandardScaler
 # ============================================================
 # USER CONFIGURATION — edit these before running
 # ============================================================
-OUTPUT_DIR = "/scratch/th3220/tlkbetaoverlap/"  # directory where result JSONs will be saved
+OUTPUT_DIR = ""  # directory where result JSONs will be saved
 DATA_TYPE  = "unbalanced"                        # "balanced" or "unbalanced"
 # ============================================================
 
