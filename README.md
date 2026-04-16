@@ -59,8 +59,8 @@ Edit the `USER CONFIGURATION` block at the top of each script before running:
 # ============================================================
 # USER CONFIGURATION — edit these before running
 # ============================================================
-OUTPUT_DIR = ""                     # edit to determine where result JSONs are saved
-DATA_TYPE  = "balanced"             # "balanced" or "unbalanced"
+OUTPUT_DIR = ""             #  where result JSONs are saved
+DATA_TYPE  = ""             # "balanced" or "unbalanced"
 # ============================================================
 ```
 
