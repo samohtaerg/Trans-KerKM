@@ -7,24 +7,17 @@ Original file is located at
     https://colab.research.google.com/drive/1g49uPe8wncIvvrD3xDoQhCbCxmLHnqLQ
 """
 
-# !pip install lifelines # Remember to get rid before HPC run!!!
+import os
+import sys
+import json
+import time
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.metrics.pairwise import rbf_kernel
-from scipy.stats import median_abs_deviation
-# from IPython.display import display, HTML
 from scipy.spatial.distance import cdist
-from scipy.optimize import minimize_scalar
-from lifelines.utils import concordance_index
 from sklearn.model_selection import KFold
-import time
-from sklearn.model_selection import train_test_split
-from lifelines import CoxPHFitter
-import os
-import json
-import sys
 from sklearn.preprocessing import StandardScaler
+from lifelines import CoxPHFitter
+from lifelines.utils import concordance_index
 
 """Let's try to fit a Trans-Kernel-KM model and compare it to Cox model
 
@@ -193,47 +186,6 @@ def compute_c_index_from_survival_curves(survival_curves, Y_true, delta):
 
         times, probs = survival_curves[i]
 
-        # Calculate expected survival time using the area under the curve
-        time_diffs = np.diff(times)
-        avg_probs = (probs[:-1] + probs[1:]) / 2
-        expected_time = np.sum(avg_probs * time_diffs)
-
-        # FIXED: Use expected survival time directly as the risk score
-        # Longer expected survival = lower risk
-        risk_scores[i] = expected_time
-
-    # Calculate C-index using lifelines or our custom function
-    try:
-        from lifelines.utils import concordance_index
-        c_index = concordance_index(Y_true, risk_scores, delta)
-    except ImportError:
-        c_index = compute_c_index(Y_true, risk_scores, delta)
-
-    return c_index
-
-def compute_c_index_from_survival_curves(survival_curves, Y_true, delta):
-    """
-    Calculate C-index from predicted survival curves
-
-    Args:
-        survival_curves: dict where keys are sample indices and values are (times, probs) tuples
-        Y_true: array of observed survival times
-        delta: array of event indicators (1=event occurred, 0=censored)
-
-    Returns:
-        float: C-index value
-    """
-    n_samples = len(Y_true)
-
-    # Calculate expected survival time as risk score
-    risk_scores = np.zeros(n_samples)
-
-    for i in range(n_samples):
-        if i not in survival_curves:
-            continue
-
-        times, probs = survival_curves[i]
-
         if len(times) < 2 or len(probs) < 2 or np.any(np.isnan(probs)):
             risk_scores[i] = 0  # or np.nan
             continue
@@ -246,145 +198,14 @@ def compute_c_index_from_survival_curves(survival_curves, Y_true, delta):
         risk_scores[i] = expected_time
 
     try:
-        from lifelines.utils import concordance_index
         c_index = concordance_index(Y_true, risk_scores, delta)
     except ZeroDivisionError:
         print("Warning: No admissible pairs for C-index. Returning NaN.")
         c_index = np.nan
-    except ImportError:
-        c_index = compute_c_index(Y_true, risk_scores, delta)
 
     return c_index
 
-"""## K-fold Cross Validation
-
-## Bootstrap version
-"""
-
-def grid_search_cv(X_train, Y_train, delta_train, X_source, Y_source, delta_source,
-                  sigma_grid, lambda_grid, n_folds=5, apply_loo=True, random_state=None):
-    """
-    Perform grid search with Bootstrap resampling to find optimal parameters
-
-    MODIFIED: Changed from K-fold CV to Bootstrap resampling for better stability with small samples
-
-    Args:
-        X_train: feature matrix of target training data
-        Y_train: survival times of target training data
-        delta_train: event indicators of target training data
-        X_source: feature matrix of source data
-        Y_source: survival times of source data
-        delta_source: event indicators of source data
-        sigma_grid: list of bandwidth parameters to try
-        lambda_grid: list of source weight parameters to try
-        n_folds: number of bootstrap samples (renamed for compatibility, default: 5)
-        apply_loo: whether to apply leave-one-out when computing hazard
-        random_state: random seed for reproducibility
-
-    Returns:
-        tuple: (best_sigma, best_lambda, best_c_index) - optimal parameters and score
-    """
-    # Set random seed
-    np.random.seed(random_state)
-
-    # Initialize best parameters and score
-    best_sigma = None
-    best_lambda = None
-    best_c_index = 0
-
-    # Store results for each parameter combination
-    results = []
-    n_samples = len(X_train)
-
-    # Loop through all parameter combinations
-    for sigma in sigma_grid:
-        for lambda_value in lambda_grid:
-            bootstrap_c_indices = []
-
-            # Perform Bootstrap resampling instead of K-fold CV
-            for bootstrap_iter in range(n_folds):  # Use n_folds as number of bootstrap samples
-                # Bootstrap resampling: sample with replacement
-                bootstrap_idx = np.random.choice(n_samples, size=n_samples, replace=True)
-
-                # Out-of-bag samples as validation set
-                oob_idx = np.setdiff1d(np.arange(n_samples), np.unique(bootstrap_idx))
-
-                # Skip if OOB set too small
-                if len(oob_idx) < 5:
-                    continue
-
-                # Create bootstrap training set and OOB validation set
-                X_train_bootstrap = X_train[bootstrap_idx]
-                Y_train_bootstrap = Y_train[bootstrap_idx]
-                delta_train_bootstrap = delta_train[bootstrap_idx]
-
-                X_val_oob = X_train[oob_idx]
-                Y_val_oob = Y_train[oob_idx]
-                delta_val_oob = delta_train[oob_idx]
-
-                # Generate survival curves for OOB validation samples
-                survival_curves = {}
-
-                for i, x_i in enumerate(X_val_oob):
-                    try:
-                        # Compute hazard function with LOO option
-                        hazard_times, hazard_values = compute_individualized_hazard(
-                            x_i, X_train_bootstrap, Y_train_bootstrap, delta_train_bootstrap,
-                            X_source, Y_source, delta_source,
-                            sigma, lambda_value, apply_loo=apply_loo
-                        )
-
-                        # Convert to survival function
-                        times, survival_probs = compute_survival_function(hazard_times, hazard_values)
-
-                        # Store survival curve
-                        survival_curves[i] = (times, survival_probs)
-                    except:
-                        # Skip problematic samples
-                        continue
-
-                # Compute C-index for this bootstrap iteration
-                try:
-                    bootstrap_c_index = compute_c_index_from_survival_curves(
-                        survival_curves, Y_val_oob, delta_val_oob
-                    )
-
-                    # Only add valid C-index scores
-                    if not np.isnan(bootstrap_c_index):
-                        bootstrap_c_indices.append(bootstrap_c_index)
-                except:
-                    # Skip failed evaluations
-                    continue
-
-            # Average C-index across bootstrap samples (only if we have valid scores)
-            if len(bootstrap_c_indices) > 0:
-                mean_c_index = np.mean(bootstrap_c_indices)
-
-                # Store results
-                results.append({
-                    'sigma': sigma,
-                    'lambda': lambda_value,
-                    'c_index': mean_c_index,
-                    'bootstrap_scores': bootstrap_c_indices,
-                    'n_valid_bootstraps': len(bootstrap_c_indices)
-                })
-
-                print(f"σ={sigma}, λ={lambda_value}: C-index = {mean_c_index:.4f} (from {len(bootstrap_c_indices)} valid bootstraps)")
-
-                # Update best parameters if better performance found
-                if mean_c_index > best_c_index:
-                    best_c_index = mean_c_index
-                    best_sigma = sigma
-                    best_lambda = lambda_value
-            else:
-                print(f"σ={sigma}, λ={lambda_value}: No valid bootstrap evaluations")
-
-    if best_sigma is not None:
-        print(f"\nBest parameters: σ={best_sigma}, λ={best_lambda}, C-index={best_c_index:.4f}")
-    else:
-        print("\nWarning: No valid parameter combinations found")
-
-    return best_sigma, best_lambda, best_c_index
+"""## K-fold Cross Validation"""
 
 def grid_search_cv(X_train, Y_train, delta_train, X_source, Y_source, delta_source,
                   sigma_grid, lambda_grid, n_folds=5, apply_loo=True, random_state=None):
@@ -514,8 +335,6 @@ def kernel_weighted_transfer_km(X_source, Y_source, delta_source,
     np.random.seed(random_state)
 
     # Apply standardization to features
-    from sklearn.preprocessing import StandardScaler
-
     scaler = StandardScaler()
     X_all = np.vstack([X_source, X_target, X_test])
     scaler.fit(X_all)
@@ -631,125 +450,10 @@ def kernel_weighted_transfer_km(X_source, Y_source, delta_source,
 
     return best_params, final_model, test_c_index
 
-"""## Target Only KM"""
-
-def kernel_km_target_only(X_target, Y_target, delta_target,
-                          X_test, Y_test, delta_test,
-                          sigma_grid=None, n_folds=5, apply_loo=True, random_state=None):
-    """
-    Kernel-weighted KM using ONLY target data (no source transfer)
-
-    Args:
-        X_target: target training feature matrix
-        Y_target: target training survival times
-        delta_target: target training event indicators
-        X_test: test feature matrix
-        Y_test: test survival times
-        delta_test: test event indicators
-        sigma_grid: list of bandwidth parameters to search
-        n_folds: number of cross-validation folds
-        apply_loo: whether to apply leave-one-out
-        random_state: random seed
-
-    Returns:
-        tuple: (best_params, c_index) - optimal parameters and test performance
-    """
-    np.random.seed(random_state)
-
-    # Apply standardization to features
-    scaler = StandardScaler()
-    X_all = np.vstack([X_target, X_test])
-    scaler.fit(X_all)
-    X_target_scaled = scaler.transform(X_target)
-    X_test_scaled = scaler.transform(X_test)
-
-    # Generate default sigma grid if not provided
-    if sigma_grid is None:
-        median_dist = np.median(cdist(X_target_scaled, X_target_scaled, metric='euclidean')[np.triu_indices(X_target_scaled.shape[0], k=1)])
-        sigma_grid = [median_dist * factor for factor in [0.1, 0.5, 1.0, 2.0, 5.0]]
-
-    print(f"Target-only KM: Sigma grid: {sigma_grid}")
-
-    # Cross-validation to find best sigma
-    best_sigma = None
-    best_c_index = 0
-
-    kf = KFold(n_splits=n_folds, shuffle=True, random_state=random_state)
-
-    for sigma in sigma_grid:
-        fold_c_indices = []
-
-        for train_idx, val_idx in kf.split(X_target_scaled):
-            X_train_fold = X_target_scaled[train_idx]
-            Y_train_fold = Y_target[train_idx]
-            delta_train_fold = delta_target[train_idx]
-
-            X_val_fold = X_target_scaled[val_idx]
-            Y_val_fold = Y_target[val_idx]
-            delta_val_fold = delta_target[val_idx]
-
-            # Generate survival curves for validation samples
-            survival_curves = {}
-
-            for i, x_i in enumerate(X_val_fold):
-                # Use compute_individualized_hazard with empty source data
-                hazard_times, hazard_values = compute_individualized_hazard(
-                    x_i, X_train_fold, Y_train_fold, delta_train_fold,
-                    np.empty((0, X_target_scaled.shape[1])), np.array([]), np.array([]),  # Empty source
-                    sigma, 1.0, apply_loo=apply_loo  # lambda doesn't matter with empty source
-                )
-
-                times, survival_probs = compute_survival_function(hazard_times, hazard_values)
-                survival_curves[i] = (times, survival_probs)
-
-            # Compute C-index for this fold
-            fold_c_index = compute_c_index_from_survival_curves(
-                survival_curves, Y_val_fold, delta_val_fold
-            )
-            fold_c_indices.append(fold_c_index)
-
-        # Average C-index across folds
-        mean_c_index = np.mean(fold_c_indices)
-        print(f"Target-only KM: σ={sigma}: C-index = {mean_c_index:.4f}")
-
-        if mean_c_index > best_c_index:
-            best_c_index = mean_c_index
-            best_sigma = sigma
-
-    print(f"Target-only KM: Best σ={best_sigma}, CV C-index={best_c_index:.4f}")
-
-    # Train final model on full target data and evaluate on test set
-    test_survival_curves = {}
-
-    for i, x_i in enumerate(X_test_scaled):
-        hazard_times, hazard_values = compute_individualized_hazard(
-            x_i, X_target_scaled, Y_target, delta_target,
-            np.empty((0, X_target_scaled.shape[1])), np.array([]), np.array([]),  # Empty source
-            best_sigma, 1.0, apply_loo=apply_loo
-        )
-
-        times, survival_probs = compute_survival_function(hazard_times, hazard_values)
-        test_survival_curves[i] = (times, survival_probs)
-
-    # Evaluate on test set
-    test_c_index = compute_c_index_from_survival_curves(
-        test_survival_curves, Y_test, delta_test
-    )
-
-    print(f"Target-only KM: Test C-index = {test_c_index:.4f}")
-
-    return {'sigma': best_sigma}, test_c_index
-
 """# Baseline Model
 
 ## Cox Model
 """
-
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from lifelines import CoxPHFitter
-from lifelines.utils import concordance_index
 
 def fit_cox_model(X_train, Y_train, delta_train, X_test, Y_test, delta_test, col_names=None):
    """
@@ -930,28 +634,6 @@ def generate_multigroup_data(n_source=1000, n_target=200, n_test=None, n_groups=
         print(f"  Group {g+1}: mean = {group_distributions[g]['mean']}, std = {group_distributions[g]['std']}")
 
     # Survival coefficients (betas) for each group
-    # if signal_strength == "strong":
-    #     group_betas = [
-    #         [-0.05, 0.4],
-    #         [-0.02, 0.7],
-    #         [-0.07, 0.1],
-    #         [-0.01, 0.9],
-    #         [-0.09, 0.3]
-    #     ]
-    #     print("Using strong signal strength for survival coefficients")
-    # elif signal_strength == "weak":
-    #     group_betas = [
-    #         [-0.05, 0.3],
-    #         [-0.02, 0.4],
-    #         [-0.07, 0.1],
-    #         [-0.01, 0.5],
-    #         [-0.09, 0.2]
-    #     ]
-    #     print("Using weak signal strength for survival coefficients")
-    # else:
-    #     raise NotImplementedError(f"Signal strength '{signal_strength}' not implemented")
-
-# Survival coefficients (betas) for each group
     if signal_strength == "strong":
         group_betas = [
             [-0.05, 0.4],
@@ -991,10 +673,8 @@ def generate_multigroup_data(n_source=1000, n_target=200, n_test=None, n_groups=
     else:
         raise NotImplementedError(f"Signal strength '{signal_strength}' not implemented")
 
-
-    # Baseline hazards and censoring for each group
+    # Baseline hazards for each group
     group_baseline_hazards = [0.0005, 0.001, 0.002, 0.0035, 0.005]
-    group_censoring_rates = [0.1, 0.1, 0.1, 0.1, 0.1]
 
     def generate_group_data(n_samples, mix_proportions, data_name):
         """Helper function to generate data for source/target/test"""
@@ -1093,91 +773,6 @@ def run_experiment_with_models(X_source, Y_source, delta_source,
                               n_folds=3, feature_names=None,
                               apply_loo=True, random_state=None):
     """
-    Run model experiments on given data comparing approaches
-    """
-    start_time = time.time()
-
-    # Use complete target data as training set
-    X_train, Y_train, delta_train = X_target, Y_target, delta_target
-    group_labels_train = group_labels_target
-
-    # Initialize results dictionary
-    results = {}
-
-    # Baseline 1: Cox model on target data only
-    print("\nFitting Cox model on target data only...")
-    cox_model, cox_c_index = fit_cox_model(
-        X_train, Y_train, delta_train, X_test, Y_test, delta_test, feature_names
-    )
-    results["Cox (Target Only)"] = cox_c_index
-    print(f"Cox model on target data: C-index = {cox_c_index:.4f}")
-
-    # Baseline 2: Cox model with naive transfer (combined data)
-    print("\nFitting Cox model with naive transfer...")
-    transfer_cox_model, transfer_cox_c_index = fit_transfer_cox_model(
-        X_source, Y_source, delta_source,
-        X_target, Y_target, delta_target,
-        X_test, Y_test, delta_test,
-        random_state=random_state, col_names=feature_names
-    )
-    results["Cox (Naive Transfer)"] = transfer_cox_c_index
-    print(f"Cox model with naive transfer: C-index = {transfer_cox_c_index:.4f}")
-
-    # Baseline 3: Kernel-weighted KM using only target data (FIXED VERSION)
-    print("\nFitting Kernel-weighted KM (Target Only)...")
-    best_params_target_only, kw_c_index_target_only = kernel_km_target_only(
-        X_target, Y_target, delta_target,
-        X_test, Y_test, delta_test,
-        sigma_grid=sigma_grid, n_folds=n_folds, apply_loo=apply_loo, random_state=random_state
-    )
-    results["Kernel-weighted KM (Target Only)"] = kw_c_index_target_only
-    print(f"Kernel-weighted KM (Target Only): C-index = {kw_c_index_target_only:.4f}")
-
-    # Method 4: Feature-based Kernel KM with transfer learning
-    print("\nFitting Feature-based Kernel KM model...")
-    feature_params, feature_model, feature_c_index = kernel_weighted_transfer_km(
-        X_source, Y_source, delta_source,
-        X_target, Y_target, delta_target,
-        X_test, Y_test, delta_test,
-        sigma_grid=sigma_grid, lambda_grid=lambda_grid,
-        n_folds=n_folds, apply_loo=apply_loo, random_state=random_state
-    )
-
-    results["Feature-based KM"] = feature_c_index
-    print(f"Feature-based Kernel KM: C-index = {feature_c_index:.4f}")
-    print(f"Best parameters: sigma={feature_params['sigma']}, lambda={feature_params['lambda']}")
-
-    # Print total runtime
-    end_time = time.time()
-    print(f"\nTotal experiment runtime: {end_time - start_time:.2f} seconds")
-
-    return {
-        'results': results,
-        'models': {
-            'cox': cox_model,
-            'transfer_cox': transfer_cox_model,
-            'feature_km': feature_model
-        },
-        'best_params': {
-            'feature_km': feature_params,
-            'target_only_km': best_params_target_only
-        },
-        'data': {
-            'X_train': X_train, 'Y_train': Y_train, 'delta_train': delta_train,
-            'X_test': X_test, 'Y_test': Y_test, 'delta_test': delta_test,
-            'group_labels_train': group_labels_train, 'group_labels_test': group_labels_test
-        }
-    }
-
-def run_experiment_with_models(X_source, Y_source, delta_source,
-                              X_target, Y_target, delta_target,
-                              X_test, Y_test, delta_test,
-                              group_labels_source, group_labels_target,
-                              group_labels_test,
-                              sigma_grid, lambda_grid,
-                              n_folds=3, feature_names=None,
-                              apply_loo=True, random_state=None):
-    """
     Run model experiments on given data comparing three approaches:
     1. Cox (Target Only)
     2. Cox with Naive Transfer
@@ -1266,11 +861,6 @@ def run_experiment_with_models(X_source, Y_source, delta_source,
 """# Recurring Version Loop"""
 
 if __name__ == "__main__":
-    import os
-    import sys
-    import json
-    import numpy as np
-
     print("===== Running Multi-Group Transfer Learning Experiment with Varying Target Sample Sizes =====")
 
     # Get SLURM job ID as a unique identifier
