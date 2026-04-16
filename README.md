@@ -68,7 +68,7 @@ DATA_TYPE  = "balanced"             # "balanced" or "unbalanced"
 # ============================================================
 ```
 
-Set `DATA_TYPE = "balanced"` or `"unbalanced"` for Settings 2a/3a vs 2b/3b.
+`Target_Size.py` uses `DATA_TYPE = "balanced"` (Setting 1). For `Signal_Level.py`, set `DATA_TYPE = "balanced"` to reproduce Setting 2a and `"unbalanced"` for Setting 2b. For `Feature_Separation.py`, set `DATA_TYPE = "balanced"` for Setting 3a and `"unbalanced"` for Setting 3b.
 
 Submit the corresponding `.sh` script as a SLURM array job to reproduce all 100 seeds.
 
