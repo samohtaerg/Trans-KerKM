@@ -22,7 +22,7 @@ from lifelines.utils import concordance_index
 # ============================================================
 # USER CONFIGURATION — edit these before running
 # ============================================================
-OUTPUT_DIR = "/scratch/th3220/tlktarget/"  # directory where result JSONs will be saved
+OUTPUT_DIR = ""  # directory where result JSONs will be saved
 DATA_TYPE  = "balanced"                     # "balanced" or "unbalanced"
 # ============================================================
 
