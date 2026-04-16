@@ -68,7 +68,7 @@ DATA_TYPE  = "balanced"             # "balanced" or "unbalanced"
 - `Signal_Level.py`: set `DATA_TYPE = "balanced"` for Setting 2a, `"unbalanced"` for Setting 2b.
 - `Feature_Separation.py`: set `DATA_TYPE = "balanced"` for Setting 3a, `"unbalanced"` for Setting 3b.
 
-Submit the corresponding `.sh` script as a SLURM array job to reproduce all 100 seeds.
+Run the corresponding script as a SLURM array job to reproduce all 100 seeds.
 
 
 ## TCGA 
@@ -83,4 +83,4 @@ Run `Real Data Result/TCGA Dataset/tcga_data_cleaning.py` on your local machine 
 
 ### Experiment
 
-Edit the `USER CONFIGURATION` block at the top of `Real Data Result/run_tcga.py`: set `OUTPUT_DIR` and `TCGA_FILE` to your local or HPC paths before running. Submit `run_tcga.sh` as a SLURM array job to reproduce all 100 seeds.
+Edit the `USER CONFIGURATION` block at the top of `Real Data Result/run_tcga.py`: set `OUTPUT_DIR` and `TCGA_FILE` to your local or HPC paths before running. Run `run_tcga.py` as a SLURM array job to reproduce all 100 seeds.
