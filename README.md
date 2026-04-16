@@ -53,10 +53,6 @@ Target-Cox                    0.6108
 
 Three scripts reproduce the simulation settings in Section 4 of the paper:
 
-- `Target_Size.py` — Setting 1
-- `Signal_Level.py` — Setting 2
-- `Feature_Separation.py` — Setting 3
-
 Edit the `USER CONFIGURATION` block at the top of each script before running:
 
 ```python
@@ -68,7 +64,9 @@ DATA_TYPE  = "balanced"             # "balanced" or "unbalanced"
 # ============================================================
 ```
 
-`Target_Size.py` uses `DATA_TYPE = "balanced"` (Setting 1). For `Signal_Level.py`, set `DATA_TYPE = "balanced"` to reproduce Setting 2a and `"unbalanced"` for Setting 2b. For `Feature_Separation.py`, set `DATA_TYPE = "balanced"` for Setting 3a and `"unbalanced"` for Setting 3b.
+- `Target_Size.py`: uses `DATA_TYPE = "balanced"` (Setting 1).
+- `Signal_Level.py`: set `DATA_TYPE = "balanced"` for Setting 2a, `"unbalanced"` for Setting 2b.
+- `Feature_Separation.py`: set `DATA_TYPE = "balanced"` for Setting 3a, `"unbalanced"` for Setting 3b.
 
 Submit the corresponding `.sh` script as a SLURM array job to reproduce all 100 seeds.
 
